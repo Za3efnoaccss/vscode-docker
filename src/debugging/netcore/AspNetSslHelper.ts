@@ -11,6 +11,7 @@ import { MessageItem } from 'vscode';
 import { parseError } from 'vscode-azureextensionui';
 import { ext } from '../../extensionVariables';
 import { localize } from '../../localize';
+import { CommandLineBuilder } from '../../utils/commandLineBuilder';
 import { cryptoUtils } from '../../utils/cryptoUtils';
 import { getDotNetVersion } from '../../utils/netCoreUtils';
 import { isMac, isWindows } from '../../utils/osUtils';
@@ -35,7 +36,7 @@ export async function trustCertificateIfNecessary(): Promise<void> {
                 .showWarningMessage(message, { modal: false, learnMoreLink: 'https://aka.ms/vscode-docker-dev-certs' }, trust)
                 .then(async selection => {
                     if (selection === trust) {
-                        await execAsync('dotnet dev-certs https --trust');
+                        await execAsync(CommandLineBuilder.create('dotnet', 'dev-certs', 'https', '--trust'));
                         knownConfiguredProjects.clear(); // Clear the cache so future F5's will not use an untrusted cert
                     }
                 });
@@ -97,7 +98,7 @@ export function getContainerSecretsFolders(platform: PlatformOS): { containerCer
 
 async function isCertificateTrusted(): Promise<boolean> {
     try {
-        await execAsync('dotnet dev-certs https --check --trust');
+        await execAsync(CommandLineBuilder.create('dotnet', 'dev-certs', 'https', '--check', '--trust'));
         return true;
     } catch (err) {
         const error = parseError(err);
@@ -125,7 +126,12 @@ async function addUserSecretsIfNecessary(projectFile: string): Promise<void> {
     const dotNetVer = await getDotNetVersion();
     if (semver.gte(dotNetVer, '3.0.0')) {
         // The dotnet 3.0 CLI has `dotnet user-secrets init`, let's use that if possible
-        const userSecretsInitCommand = `dotnet user-secrets init --project "${projectFile}" --id ${cryptoUtils.getRandomHexString(32)}`;
+        const userSecretsInitCommand = CommandLineBuilder
+            .create('dotnet', 'user-secrets', 'init')
+            .withArg('--project')
+            .withQuotedArg(projectFile)
+            .withArg('--id')
+            .withArg(cryptoUtils.getRandomHexString(32));
         await execAsync(userSecretsInitCommand);
     } else {
         // Otherwise try to manually edit the project file by adding a property group immediately after the <Project> tag
@@ -149,11 +155,22 @@ async function exportCertificateAndSetPassword(projectFile: string, certificateE
     const password = cryptoUtils.getRandomHexString(32);
 
     // Export the certificate
-    const exportCommand = `dotnet dev-certs https -ep "${certificateExportPath}" -p "${password}"`;
+    const exportCommand = CommandLineBuilder
+        .create('dotnet', 'dev-certs', 'https')
+        .withArg('-ep')
+        .withQuotedArg(certificateExportPath)
+        .withArg('-p')
+        .withQuotedArg(password);
     await execAsync(exportCommand);
 
     // Set the password to dotnet user-secrets
-    const userSecretsPasswordCommand = `dotnet user-secrets --project "${projectFile}" set Kestrel:Certificates:Development:Password "${password}"`;
+    const userSecretsPasswordCommand = CommandLineBuilder
+        .create('dotnet', 'user-secrets')
+        .withArg('--project')
+        .withQuotedArg(projectFile)
+        .withArg('set')
+        .withArg('Kestrel:Certificates:Development:Password')
+        .withQuotedArg(password);
     await execAsync(userSecretsPasswordCommand);
 }
 

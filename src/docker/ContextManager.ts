@@ -13,6 +13,7 @@ import { commands, Event, EventEmitter, workspace } from 'vscode';
 import { Disposable } from 'vscode';
 import { callWithTelemetryAndErrorHandling, IActionContext } from 'vscode-azureextensionui';
 import { ext } from '../extensionVariables';
+import { CommandLineBuilder } from '../utils/commandLineBuilder';
 import { AsyncLazy } from '../utils/lazy';
 import { isWindows } from '../utils/osUtils';
 import { execAsync, spawnAsync } from '../utils/spawnAsync';
@@ -153,7 +154,10 @@ export class DockerContextManager implements ContextManager, Disposable {
     }
 
     public async inspect(actionContext: IActionContext, contextName: string): Promise<DockerContextInspection> {
-        const { stdout } = await execAsync(`docker context inspect ${contextName}`, { timeout: 10000 });
+        const inspectCmd = CommandLineBuilder
+            .create('docker', 'context', 'inspect')
+            .withQuotedArg(contextName);
+        const { stdout } = await execAsync(inspectCmd, { timeout: 10000 });
 
         // The result is an array with one entry
         const result: DockerContextInspection[] = JSON.parse(stdout) as DockerContextInspection[];
@@ -161,12 +165,16 @@ export class DockerContextManager implements ContextManager, Disposable {
     }
 
     public async use(actionContext: IActionContext, contextName: string): Promise<void> {
-        const useCmd: string = `docker context use ${contextName}`;
+        const useCmd = CommandLineBuilder
+            .create('docker', 'context', 'use')
+            .withQuotedArg(contextName);
         await execAsync(useCmd, ContextCmdExecOptions);
     }
 
     public async remove(actionContext: IActionContext, contextName: string): Promise<void> {
-        const removeCmd: string = `docker context rm ${contextName}`;
+        const removeCmd = CommandLineBuilder
+            .create('docker', 'context', 'rm')
+            .withQuotedArg(contextName);
         await spawnAsync(removeCmd, ContextCmdExecOptions);
     }
 
@@ -174,6 +182,8 @@ export class DockerContextManager implements ContextManager, Disposable {
         return this.newCli.getValue();
     }
 
+    // Max method body length warning
+    // eslint-disable-next-line @typescript-eslint/tslint/config
     private async loadContexts(): Promise<DockerContext[]> {
         let loadResult = await callWithTelemetryAndErrorHandling(ext.dockerClient ? 'docker-context.change' : 'docker-context.initialize', async (actionContext: IActionContext) => {
             // docker-context.initialize and docker-context.change should be treated as "activation events", in that they aren't real user action
@@ -218,7 +228,9 @@ export class DockerContextManager implements ContextManager, Disposable {
 
             // Setting the DOCKER_CONTEXT environment variable to whatever is passed along means the CLI will always
             // return that specified context as Current = true. This way we don't need extra logic below in parsing.
-            const { stdout } = await execAsync('docker context ls --format="{{json .}}"', { ...ContextCmdExecOptions, env: { ...process.env, DOCKER_CONTEXT: dockerContextEnv } });
+            const listCmd = CommandLineBuilder
+                .create('docker', 'context', 'ls', '--format="{{json .}}"');
+            const { stdout } = await execAsync(listCmd, { ...ContextCmdExecOptions, env: { ...process.env, DOCKER_CONTEXT: dockerContextEnv } });
             const lines = stdout.split(/\r?\n/im);
 
             for (const line of lines) {
@@ -286,7 +298,7 @@ export class DockerContextManager implements ContextManager, Disposable {
             } else {
                 // Otherwise we look at the output of `docker serve --help`
                 // TODO: this is not a very good heuristic
-                const { stdout } = await execAsync('docker serve --help');
+                const { stdout } = await execAsync(CommandLineBuilder.create('docker', 'serve', '--help'));
 
                 if (/^\s*Start an api server/i.test(stdout)) {
                     result = true;

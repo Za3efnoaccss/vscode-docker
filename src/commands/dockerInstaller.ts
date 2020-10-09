@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { IActionContext } from 'vscode-azureextensionui';
 import { ext } from '../extensionVariables';
 import { localize } from '../localize';
+import { CommandLineBuilder } from '../utils/commandLineBuilder';
 import { dockerInstallStatusProvider } from '../utils/DockerInstallStatusProvider';
 import { executeAsTask } from '../utils/executeAsTask';
 import { streamToFile } from '../utils/httpRequest';
@@ -18,7 +19,7 @@ import { execAsync } from '../utils/spawnAsync';
 export abstract class DockerInstallerBase {
     protected abstract downloadUrl: string;
     protected abstract fileExtension: string;
-    protected abstract getInstallCommand(fileName: string): string;
+    protected abstract getInstallCommand(fileName: string): CommandLineBuilder;
 
     public async downloadAndInstallDocker(context: IActionContext): Promise<void> {
         const shouldInstall: boolean = await this.preInstallCheck();
@@ -79,20 +80,19 @@ export abstract class DockerInstallerBase {
         context.errorHandling.suppressDisplay = true;
     }
 
-    protected abstract install(context: IActionContext, fileName: string, cmd: string): Promise<void>;
+    protected abstract install(context: IActionContext, fileName: string, cmd: CommandLineBuilder): Promise<void>;
 }
 
 export class WindowsDockerInstaller extends DockerInstallerBase {
     protected downloadUrl: string = 'https://aka.ms/download-docker-windows-vscode';
     protected fileExtension: string = 'exe';
-    protected getInstallCommand(fileName: string): string {
-        // Windows require double quote.
-        return `"${fileName}"`;
+    protected getInstallCommand(fileName: string): CommandLineBuilder {
+        return CommandLineBuilder.create().withQuotedArg(fileName);
     }
 
-    protected async install(context: IActionContext, fileName: string, cmd: string): Promise<void> {
+    protected async install(context: IActionContext, fileName: string, cmd: CommandLineBuilder): Promise<void> {
         try {
-            ext.outputChannel.appendLine(localize('vscode-docker.commands.DockerInstallerBase.downloadCompleteMessage', 'Executing command {0}', cmd));
+            ext.outputChannel.appendLine(localize('vscode-docker.commands.DockerInstallerBase.downloadCompleteMessage', 'Executing command {0}', cmd.build()));
             await execAsync(cmd);
         } finally {
             if (await fse.pathExists(fileName)) {
@@ -105,15 +105,20 @@ export class WindowsDockerInstaller extends DockerInstallerBase {
 export class MacDockerInstaller extends DockerInstallerBase {
     protected downloadUrl: string = 'https://aka.ms/download-docker-mac-vscode';
     protected fileExtension: string = 'dmg';
-    protected getInstallCommand(fileName: string): string {
-        return `chmod +x '${fileName}' && open '${fileName}'`;
+    protected getInstallCommand(fileName: string): CommandLineBuilder {
+        return CommandLineBuilder
+            .create('chmod', '+x')
+            .withQuotedArg(fileName)
+            .withArg('&&')
+            .withArg('open')
+            .withQuotedArg(fileName);
     }
 
     protected async install(context: IActionContext, fileName: string): Promise<void> {
         const title = localize('vscode-docker.commands.MacDockerInstaller.terminalTitle', 'Docker Install');
         const command = this.getInstallCommand(fileName);
 
-        await executeAsTask(context, command, title, { addDockerEnv: false });
+        await executeAsTask(context, command.build(), title, { addDockerEnv: false });
     }
 }
 

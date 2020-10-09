@@ -7,8 +7,10 @@ import * as fse from 'fs-extra';
 import * as os from 'os';
 import * as path from 'path';
 import * as request from 'request-promise-native';
+import { ShellQuoting } from 'vscode';
 import { ext } from '../../extensionVariables';
 import { localize } from '../../localize';
+import { CommandLineBuilder } from '../../utils/commandLineBuilder';
 import { isWindows } from '../../utils/osUtils';
 import { execAsync } from '../../utils/spawnAsync';
 
@@ -21,20 +23,30 @@ const dayInMs = 24 * 60 * 60 * 1000;
 
 export const vsDbgInstallBasePath = path.join(os.homedir(), '.vsdbg');
 
-const acquisition: { url: string, scriptPath: string, getShellCommand(runtime: VsDbgRuntime, version: VsDbgVersion): string; } =
+const acquisition: { url: string, scriptPath: string, getShellCommand(runtime: VsDbgRuntime, version: VsDbgVersion): CommandLineBuilder; } =
     isWindows() ?
         {
             url: 'https://aka.ms/getvsdbgps1',
             scriptPath: path.join(vsDbgInstallBasePath, 'GetVsDbg.ps1'),
             getShellCommand: (runtime: VsDbgRuntime, version: VsDbgVersion) => {
-                return `powershell -NonInteractive -NoProfile -WindowStyle Hidden -ExecutionPolicy RemoteSigned -File "${acquisition.scriptPath}" -Version ${version} -RuntimeID ${runtime} -InstallPath "${getInstallDirectory(runtime, version)}"`;
+                return CommandLineBuilder
+                    .create('powershell', '-NonInteractive', '-NoProfile', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'RemoteSigned')
+                    .withNamedArg('-File', { value: acquisition.scriptPath, quoting: ShellQuoting.Strong })
+                    .withNamedArg('-Version', version)
+                    .withNamedArg('-RuntimeID', runtime)
+                    .withNamedArg('-InstallPath', { value: getInstallDirectory(runtime, version), quoting: ShellQuoting.Strong });
             }
         } :
         {
             url: 'https://aka.ms/getvsdbgsh',
             scriptPath: path.join(vsDbgInstallBasePath, 'getvsdbg.sh'),
             getShellCommand: (runtime: VsDbgRuntime, version: VsDbgVersion) => {
-                return `${acquisition.scriptPath} -v ${version} -r ${runtime} -l "${getInstallDirectory(runtime, version)}"`;
+                return CommandLineBuilder
+                    .create()
+                    .withQuotedArg(acquisition.scriptPath)
+                    .withNamedArg('-v', version)
+                    .withNamedArg('-r', runtime)
+                    .withNamedArg('-l', { value: getInstallDirectory(runtime, version), quoting: ShellQuoting.Strong });
             }
         };
 
@@ -81,7 +93,7 @@ async function executeAcquisitionScriptIfNecessary(runtime: VsDbgRuntime, versio
     const command = acquisition.getShellCommand(runtime, version);
 
     ext.outputChannel.appendLine(localize('vscode-docker.debugging.netCore.vsDbgHelper.installingDebugger', 'Installing VsDbg, Runtime = {0}, Version = {1}...', runtime, version));
-    ext.outputChannel.appendLine(command);
+    ext.outputChannel.appendLine(command.build());
 
     await execAsync(command, {}, (output: string) => {
         ext.outputChannel.append(output);

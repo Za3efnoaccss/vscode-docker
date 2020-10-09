@@ -277,8 +277,7 @@ export class NetCoreDebugHelper implements DebugHelper {
             const command = CommandLineBuilder
                 .create('docker', 'cp')
                 .withQuotedArg(vsDbgInstallBasePath)
-                .withQuotedArg(containerDebuggerPath)
-                .build();
+                .withQuotedArg(containerDebuggerPath);
             await execAsync(command);
         });
     }
@@ -288,8 +287,7 @@ export class NetCoreDebugHelper implements DebugHelper {
             .create('docker', 'exec', '-i')
             .withQuotedArg(containerName)
             .withArg(containerOS === 'windows' ? 'cmd /C' : '/bin/sh -c')
-            .withQuotedArg(containerOS === 'windows' ? `IF EXIST "${debuggerPath}" (echo true) else (echo false)` : `if [ -f ${debuggerPath} ]; then echo true; fi;`)
-            .build();
+            .withQuotedArg(containerOS === 'windows' ? `IF EXIST "${debuggerPath}" (echo true) else (echo false)` : `if [ -f ${debuggerPath} ]; then echo true; fi;`);
 
         const { stdout } = await execAsync(command)
 

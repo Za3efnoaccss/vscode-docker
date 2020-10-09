@@ -10,6 +10,7 @@ import { localize } from '../../../localize';
 import { ContextTreeItem } from '../../../tree/contexts/ContextTreeItem';
 import { registryExpectedContextValues } from '../../../tree/registries/registryContextValues';
 import { RemoteTagTreeItem } from '../../../tree/registries/RemoteTagTreeItem';
+import { CommandLineBuilder } from '../../../utils/commandLineBuilder';
 import { executeAsTask } from '../../../utils/executeAsTask';
 import { execAsync } from '../../../utils/spawnAsync';
 import { addImageTaggingTelemetry } from '../../images/tagImage';
@@ -61,10 +62,16 @@ async function getImagePorts(fullTag: string): Promise<number[]> {
         const result: number[] = [];
 
         // 1. Pull the image to the default context
-        await execAsync(`docker --context default pull ${fullTag}`);
+        const pullCommand = CommandLineBuilder
+            .create('docker', '--context', 'default', 'pull', fullTag);
+
+        await execAsync(pullCommand);
 
         // 2. Inspect it in the default context to find out the ports to map
-        const { stdout } = await execAsync(`docker --context default inspect ${fullTag} --format="{{ json .Config.ExposedPorts }}"`);
+        const inspectCommand = CommandLineBuilder
+            .create('docker', '--context', 'default', 'inspect', fullTag, '--format="{{ json .Config.ExposedPorts }}"');
+
+        const { stdout } = await execAsync(inspectCommand);
 
         try {
             const portsJson = <{ [key: string]: never }>JSON.parse(stdout);

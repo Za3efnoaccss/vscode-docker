@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See LICENSE.md in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { CommandLineBuilder } from "./commandLineBuilder";
 import { AsyncLazy } from "./lazy";
 import { execAsync } from "./spawnAsync";
 
@@ -32,7 +33,7 @@ class DockerInstallStatusProvider implements IDockerInstallStatusProvider {
 
     public async isDockerInstalledRealTimeCheck(): Promise<boolean> {
         try {
-            await execAsync('docker -v');
+            await execAsync(CommandLineBuilder.create('docker', '-v'));
             return true; // As long as the docker command did't throw exception, assume it is installed.
         } catch (error) {
             return false; // docker not installed
