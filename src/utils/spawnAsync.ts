@@ -7,6 +7,7 @@ import * as cp from 'child_process';
 import { CancellationToken, Disposable } from 'vscode';
 import { UserCancelledError } from 'vscode-azureextensionui';
 import { localize } from '../localize';
+import { CommandLineBuilder } from './commandLineBuilder';
 
 const DEFAULT_BUFFER_SIZE = 10 * 1024; // The default Node.js `exec` buffer size is 1 MB, our actual usage is far less
 
@@ -16,7 +17,7 @@ export type Progress = (content: string, process: cp.ChildProcess) => void;
 export type ExecError = Error & { code: any, signal: any, stdErrHandled: boolean };
 
 export async function spawnAsync(
-    command: string,
+    commandLineBuilder: CommandLineBuilder,
     options?: cp.SpawnOptions,
     onStdout?: Progress,
     stdoutBuffer?: Buffer,
@@ -32,6 +33,8 @@ export async function spawnAsync(
         // Without the shell option, it pukes on arguments
         options = options || {};
         options.shell = true;
+
+        const command = commandLineBuilder.build();
 
         const process = cp.spawn(command, options);
 
@@ -108,11 +111,11 @@ export async function spawnAsync(
     });
 }
 
-export async function execAsync(command: string, options?: cp.ExecOptions, progress?: (content: string, process: cp.ChildProcess) => void): Promise<{ stdout: string, stderr: string }> {
+export async function execAsync(commandLineBuilder: CommandLineBuilder, options?: cp.ExecOptions, progress?: (content: string, process: cp.ChildProcess) => void): Promise<{ stdout: string, stderr: string }> {
     const stdoutBuffer = Buffer.alloc(options && options.maxBuffer || DEFAULT_BUFFER_SIZE);
     const stderrBuffer = Buffer.alloc(options && options.maxBuffer || DEFAULT_BUFFER_SIZE);
 
-    await spawnAsync(command, options as cp.CommonOptions, progress, stdoutBuffer, progress, stderrBuffer);
+    await spawnAsync(commandLineBuilder, options as cp.CommonOptions, progress, stdoutBuffer, progress, stderrBuffer);
 
     return {
         stdout: bufferToString(stdoutBuffer),

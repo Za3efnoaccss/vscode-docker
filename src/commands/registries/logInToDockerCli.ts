@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See LICENSE.md in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { exec } from 'child_process';
 import * as vscode from 'vscode';
 import { IActionContext } from 'vscode-azureextensionui';
 import { NULL_GUID } from '../../constants';
@@ -11,6 +10,7 @@ import { ext } from '../../extensionVariables';
 import { localize } from "../../localize";
 import { registryExpectedContextValues } from '../../tree/registries/registryContextValues';
 import { RegistryTreeItemBase } from '../../tree/registries/RegistryTreeItemBase';
+import { execAsync } from '../../utils/spawnAsync';
 
 export async function logInToDockerCli(context: IActionContext, node?: RegistryTreeItemBase): Promise<void> {
     if (!node) {
