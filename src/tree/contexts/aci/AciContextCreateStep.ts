@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See LICENSE.md in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Progress } from 'vscode';
+import { Progress, ShellQuoting } from 'vscode';
 import { AzureWizardExecuteStep, parseError } from 'vscode-azureextensionui';
 import { ext } from '../../../extensionVariables';
 import { localize } from '../../../localize';
@@ -23,10 +23,8 @@ export class AciContextCreateStep extends AzureWizardExecuteStep<IAciWizardConte
         const command = CommandLineBuilder
             .create('docker', 'context', 'create', 'aci')
             .withQuotedArg(wizardContext.contextName)
-            .withArg('--subscription-id')
-            .withArg(wizardContext.subscriptionId)
-            .withArg('--resource-group')
-            .withQuotedArg(wizardContext.resourceGroup.name);
+            .withNamedArg('--subscription-id', wizardContext.subscriptionId)
+            .withNamedArg('--resource-group', { value: wizardContext.resourceGroup.name, quoting: ShellQuoting.Strong });
 
         try {
             await execAsync(command);

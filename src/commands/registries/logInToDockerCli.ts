@@ -43,8 +43,7 @@ export async function logInToDockerCli(context: IActionContext, node?: RegistryT
             const command = CommandLineBuilder
                 .create('docker', 'login')
                 .withQuotedArg(creds.registryPath)
-                .withArg('--username')
-                .withQuotedArg(username)
+                .withNamedArg('--username', { value: username, quoting: vscode.ShellQuoting.Strong })
                 .withArg('--password-stdin');
 
             try {

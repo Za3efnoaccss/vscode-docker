@@ -7,7 +7,7 @@ import * as fse from 'fs-extra';
 import * as os from 'os';
 import * as path from 'path';
 import * as semver from 'semver';
-import { MessageItem } from 'vscode';
+import { MessageItem, ShellQuoting } from 'vscode';
 import { parseError } from 'vscode-azureextensionui';
 import { ext } from '../../extensionVariables';
 import { localize } from '../../localize';
@@ -128,10 +128,8 @@ async function addUserSecretsIfNecessary(projectFile: string): Promise<void> {
         // The dotnet 3.0 CLI has `dotnet user-secrets init`, let's use that if possible
         const userSecretsInitCommand = CommandLineBuilder
             .create('dotnet', 'user-secrets', 'init')
-            .withArg('--project')
-            .withQuotedArg(projectFile)
-            .withArg('--id')
-            .withArg(cryptoUtils.getRandomHexString(32));
+            .withNamedArg('--project', { value: projectFile, quoting: ShellQuoting.Strong })
+            .withNamedArg('--id', cryptoUtils.getRandomHexString(32));
         await execAsync(userSecretsInitCommand);
     } else {
         // Otherwise try to manually edit the project file by adding a property group immediately after the <Project> tag
@@ -157,17 +155,14 @@ async function exportCertificateAndSetPassword(projectFile: string, certificateE
     // Export the certificate
     const exportCommand = CommandLineBuilder
         .create('dotnet', 'dev-certs', 'https')
-        .withArg('-ep')
-        .withQuotedArg(certificateExportPath)
-        .withArg('-p')
-        .withQuotedArg(password);
+        .withNamedArg('-ep', { value: certificateExportPath, quoting: ShellQuoting.Strong })
+        .withNamedArg('-p', { value: password, quoting: ShellQuoting.Strong });
     await execAsync(exportCommand);
 
     // Set the password to dotnet user-secrets
     const userSecretsPasswordCommand = CommandLineBuilder
         .create('dotnet', 'user-secrets')
-        .withArg('--project')
-        .withQuotedArg(projectFile)
+        .withNamedArg('--project', { value: projectFile, quoting: ShellQuoting.Strong })
         .withArg('set')
         .withArg('Kestrel:Certificates:Development:Password')
         .withQuotedArg(password);

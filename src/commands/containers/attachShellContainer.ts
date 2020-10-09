@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See LICENSE.md in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ShellQuoting } from 'vscode';
 import { IActionContext } from 'vscode-azureextensionui';
 import { DockerOSType } from '../../docker/Common';
 import { ext } from '../../extensionVariables';
@@ -51,8 +52,7 @@ export async function attachShellContainer(context: IActionContext, node?: Conta
                     .create('docker', 'exec', '-i')
                     .withQuotedArg(node.containerId)
                     .withArg('sh')
-                    .withArg('-c')
-                    .withQuotedArg('which bash');
+                    .withNamedArg('-c', { value: 'which bash', quoting: ShellQuoting.Strong });
                 await execAsync(command);
                 shellCommand = 'bash';
             } catch {
